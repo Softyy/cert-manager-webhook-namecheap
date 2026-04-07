@@ -1,1 +1,11 @@
-{}
+{
+  "apiUser": "namecheap-api-user",
+  "username": "namecheap-username",
+  "clientIP": "203.0.113.10",
+  "apiKeySecretRef": {
+    "name": "namecheap-api-key",
+    "key": "api-key"
+  },
+  "useSandbox": true,
+  "ttl": 60
+}

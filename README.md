@@ -2,13 +2,13 @@
   <img src="https://raw.githubusercontent.com/cert-manager/cert-manager/d53c0b9270f8cd90d908460d69502694e1838f5f/logo/logo-small.png" height="256" width="256" alt="cert-manager project logo" />
 </p>
 
-# ACME webhook example
+# Namecheap ACME webhook
 
 The ACME issuer type supports an optional 'webhook' solver, which can be used
 to implement custom DNS01 challenge solving logic.
 
-This is useful if you need to use cert-manager with a DNS provider that is not
-officially supported in cert-manager core.
+This webhook uses the Namecheap DNS API via the official Go SDK to solve DNS01
+challenges for cert-manager.
 
 ## Why not in core?
 
@@ -24,6 +24,50 @@ those up themselves as 'extensions' to cert-manager.
 We can also then provide a standardised 'testing framework', or set of
 conformance tests, which allow us to validate that a DNS provider works as
 expected.
+
+## Configuration
+
+Create a secret with your Namecheap API key:
+
+```bash
+kubectl -n cert-manager create secret generic namecheap-api-key \
+  --from-literal=api-key=YOUR_API_KEY
+```
+
+Example Issuer configuration:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: namecheap
+spec:
+  acme:
+    email: you@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: namecheap-issuer-key
+    solvers:
+      - dns01:
+          webhook:
+            groupName: acme.mycompany.com
+            solverName: namecheap
+            config:
+              apiUser: "namecheap-api-user"
+              username: "namecheap-username"
+              clientIP: "203.0.113.10"
+              apiKeySecretRef:
+                name: namecheap-api-key
+                key: api-key
+              useSandbox: false
+              ttl: 60
+```
+
+Notes:
+
+- `clientIP` must match an IP address whitelisted in the Namecheap account.
+- `apiUser` can differ from `username` if the API user is delegated.
+- `useSandbox` should be true for the Namecheap sandbox environment.
 
 ## Creating your own webhook
 
