@@ -15,7 +15,7 @@ certManager:
   serviceAccountName: cert-manager
 
 image:
-  repository: softyy/cert-manager-webhook-namecheap
+  repository: ghcr.io/softyy/cert-manager-webhook-namecheap
   tag: latest
   pullPolicy: IfNotPresent
 
