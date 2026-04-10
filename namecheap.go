@@ -26,12 +26,14 @@ type namecheapSolver struct {
 }
 
 type namecheapDNSProviderConfig struct {
-	APIUser      string                   `json:"apiUser"`
-	APIKeySecret cmmeta.SecretKeySelector `json:"apiKeySecretRef"`
-	Username     string                   `json:"username"`
-	ClientIP     string                   `json:"clientIP"`
-	UseSandbox   bool                     `json:"useSandbox"`
-	TTL          int                      `json:"ttl"`
+	APIUser        string                   `json:"apiUser"`
+	APIUserSecret  cmmeta.SecretKeySelector `json:"apiUserSecretRef"`
+	APIKeySecret   cmmeta.SecretKeySelector `json:"apiKeySecretRef"`
+	Username       string                   `json:"username"`
+	UsernameSecret cmmeta.SecretKeySelector `json:"usernameSecretRef"`
+	ClientIP       string                   `json:"clientIP"`
+	UseSandbox     bool                     `json:"useSandbox"`
+	TTL            int                      `json:"ttl"`
 }
 
 func (c *namecheapSolver) Name() string {
@@ -84,11 +86,17 @@ func loadNamecheapConfig(cfgJSON *extapi.JSON) (namecheapDNSProviderConfig, erro
 	if err := json.Unmarshal(cfgJSON.Raw, &cfg); err != nil {
 		return cfg, fmt.Errorf("error decoding solver config: %w", err)
 	}
-	if cfg.APIUser == "" {
-		return cfg, errors.New("apiUser is required")
+	if cfg.APIUser == "" && cfg.APIUserSecret.Name == "" {
+		return cfg, errors.New("apiUser or apiUserSecretRef is required")
 	}
-	if cfg.Username == "" {
-		return cfg, errors.New("username is required")
+	if cfg.APIUserSecret.Name != "" && cfg.APIUserSecret.Key == "" {
+		return cfg, errors.New("apiUserSecretRef.key is required")
+	}
+	if cfg.Username == "" && cfg.UsernameSecret.Name == "" {
+		return cfg, errors.New("username or usernameSecretRef is required")
+	}
+	if cfg.UsernameSecret.Name != "" && cfg.UsernameSecret.Key == "" {
+		return cfg, errors.New("usernameSecretRef.key is required")
 	}
 	if cfg.ClientIP == "" {
 		return cfg, errors.New("clientIP is required")
@@ -114,23 +122,58 @@ func (c *namecheapSolver) buildClient(ch *v1alpha1.ChallengeRequest, cfg nameche
 	}
 
 	ns := ch.ResourceNamespace
-	secret, err := c.client.CoreV1().Secrets(ns).Get(context.Background(), cfg.APIKeySecret.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to read api key secret %s/%s: %w", ns, cfg.APIKeySecret.Name, err)
+	secretCache := map[string]map[string][]byte{}
+	getSecretValue := func(ref cmmeta.SecretKeySelector, description string) (string, error) {
+		secretData, ok := secretCache[ref.Name]
+		if !ok {
+			secret, err := c.client.CoreV1().Secrets(ns).Get(context.Background(), ref.Name, metav1.GetOptions{})
+			if err != nil {
+				return "", fmt.Errorf("failed to read %s secret %s/%s: %w", description, ns, ref.Name, err)
+			}
+			secretData = secret.Data
+			secretCache[ref.Name] = secretData
+		}
+		valueBytes, ok := secretData[ref.Key]
+		if !ok {
+			return "", fmt.Errorf("%s secret missing key %q", description, ref.Key)
+		}
+		value := strings.TrimSpace(string(valueBytes))
+		if value == "" {
+			return "", fmt.Errorf("%s is empty", description)
+		}
+		return value, nil
 	}
 
-	apiKeyBytes, ok := secret.Data[cfg.APIKeySecret.Key]
-	if !ok {
-		return nil, fmt.Errorf("api key secret missing key %q", cfg.APIKeySecret.Key)
+	apiKey, err := getSecretValue(cfg.APIKeySecret, "api key")
+	if err != nil {
+		return nil, err
 	}
-	apiKey := strings.TrimSpace(string(apiKeyBytes))
-	if apiKey == "" {
-		return nil, errors.New("api key is empty")
+
+	apiUser := strings.TrimSpace(cfg.APIUser)
+	if cfg.APIUserSecret.Name != "" {
+		apiUser, err = getSecretValue(cfg.APIUserSecret, "api user")
+		if err != nil {
+			return nil, err
+		}
+	}
+	if apiUser == "" {
+		return nil, errors.New("api user is empty")
+	}
+
+	username := strings.TrimSpace(cfg.Username)
+	if cfg.UsernameSecret.Name != "" {
+		username, err = getSecretValue(cfg.UsernameSecret, "username")
+		if err != nil {
+			return nil, err
+		}
+	}
+	if username == "" {
+		return nil, errors.New("username is empty")
 	}
 
 	client := namecheap.NewClient(&namecheap.ClientOptions{
-		UserName:   cfg.Username,
-		ApiUser:    cfg.APIUser,
+		UserName:   username,
+		ApiUser:    apiUser,
 		ApiKey:     apiKey,
 		ClientIp:   cfg.ClientIP,
 		UseSandbox: cfg.UseSandbox,

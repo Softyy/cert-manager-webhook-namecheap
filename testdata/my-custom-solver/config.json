@@ -1,10 +1,16 @@
 {
-  "apiUser": "namecheap-api-user",
-  "username": "namecheap-username",
+  "apiUserSecretRef": {
+    "name": "namecheap-credentials",
+    "key": "apiUser"
+  },
+  "usernameSecretRef": {
+    "name": "namecheap-credentials",
+    "key": "username"
+  },
   "clientIP": "203.0.113.10",
   "apiKeySecretRef": {
-    "name": "namecheap-api-key",
-    "key": "api-key"
+    "name": "namecheap-credentials",
+    "key": "apiKey"
   },
   "useSandbox": true,
   "ttl": 60

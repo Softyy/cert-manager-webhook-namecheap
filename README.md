@@ -53,12 +53,16 @@ spec:
             groupName: acme.mycompany.com
             solverName: namecheap
             config:
-              apiUser: "namecheap-api-user"
-              username: "namecheap-username"
+              apiUserSecretRef:
+                name: "namecheap-credentials"
+                key: apiUser
+              usernameSecretRef:
+                name: "namecheap-credentials"
+                key: username
               clientIP: "203.0.113.10"
               apiKeySecretRef:
-                name: namecheap-api-key
-                key: api-key
+                name: namecheap-credentials
+                key: apiKey
               useSandbox: false
               ttl: 60
 ```
@@ -66,7 +70,7 @@ spec:
 Notes:
 
 - `clientIP` must match an IP address whitelisted in the Namecheap account.
-- `apiUser` can differ from `username` if the API user is delegated.
+- `apiUser` or `apiUserSecretRef` can differ from `username`/`usernameSecretRef` if the API user is delegated.
 - `useSandbox` should be true for the Namecheap sandbox environment.
 
 ## Creating your own webhook
