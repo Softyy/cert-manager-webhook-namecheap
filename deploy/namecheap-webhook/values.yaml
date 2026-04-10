@@ -17,7 +17,7 @@ certManager:
 image:
   repository: ghcr.io/softyy/cert-manager-webhook-namecheap
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 nameOverride: ""
 fullnameOverride: ""
