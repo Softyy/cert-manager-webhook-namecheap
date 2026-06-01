@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "apiUser": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "apiUserSecretRef": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "key": {"type": "string", "minLength": 1, "pattern": "\\S"}
+      }
+    },
+    "apiKeySecretRef": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "key": {"type": "string", "minLength": 1, "pattern": "\\S"}
+      },
+      "required": ["name", "key"]
+    },
+    "username": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "usernameSecretRef": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "key": {"type": "string", "minLength": 1, "pattern": "\\S"}
+      }
+    },
+    "clientIP": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "useSandbox": {"type": "boolean"},
+    "ttl": {"type": "integer"}
+  },
+  "required": ["clientIP", "apiKeySecretRef"],
+  "allOf": [
+    {
+      "anyOf": [
+        {"required": ["apiUser"]},
+        {"required": ["apiUserSecretRef"]}
+      ]
+    },
+    {
+      "anyOf": [
+        {"required": ["username"]},
+        {"required": ["usernameSecretRef"]}
+      ]
+    },
+    {
+      "if": {"required": ["apiUserSecretRef"]},
+      "then": {"properties": {"apiUserSecretRef": {"required": ["name", "key"]}}}
+    },
+    {
+      "if": {"required": ["usernameSecretRef"]},
+      "then": {"properties": {"usernameSecretRef": {"required": ["name", "key"]}}}
+    }
+  ]
+}

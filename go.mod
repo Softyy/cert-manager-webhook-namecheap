@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/cert-manager/cert-manager v1.20.1
+	github.com/google/jsonschema-go v0.4.2
 	github.com/miekg/dns v1.1.72
 	github.com/namecheap/go-namecheap-sdk/v2 v2.4.1
 	github.com/stretchr/testify v1.11.1

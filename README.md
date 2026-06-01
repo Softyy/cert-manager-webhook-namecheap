@@ -85,7 +85,7 @@ To make the set up of these webhook's easier, we provide a template repository
 that can be used to get started quickly.
 
 When implementing your webhook, you should set the `groupName` in the
-[values.yml](deploy/example-webhook/values.yaml) of your chart to a domain name that 
+[values.yml](deploy/example-webhook/values.yaml) of your chart to a domain name that
 you - as the webhook-author - own. It should not need to be adjusted by the users of
 your chart.
 
@@ -104,7 +104,7 @@ An example Go test file has been provided in [main_test.go](https://github.com/c
 You can run the test suite with:
 
 ```bash
-$ TEST_ZONE_NAME=example.com. make test
+TEST_ZONE_NAME=example.com. make test
 ```
 
 The example file has a number of areas you must fill in and replace with your

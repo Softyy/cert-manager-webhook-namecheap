@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/cert-manager/cert-manager/pkg/acme/webhook/apis/acme/v1alpha1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/namecheap/go-namecheap-sdk/v2/namecheap"
 	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +36,23 @@ type namecheapDNSProviderConfig struct {
 	ClientIP       string                   `json:"clientIP"`
 	UseSandbox     bool                     `json:"useSandbox"`
 	TTL            int                      `json:"ttl"`
+}
+
+//go:embed schema/namecheap-config.schema.json
+var namecheapConfigSchemaJSON []byte
+
+var namecheapConfigSchema = mustResolveNamecheapConfigSchema()
+
+func mustResolveNamecheapConfigSchema() *jsonschema.Resolved {
+	var schema jsonschema.Schema
+	if err := json.Unmarshal(namecheapConfigSchemaJSON, &schema); err != nil {
+		panic(fmt.Sprintf("invalid namecheap config schema: %v", err))
+	}
+	resolved, err := schema.Resolve(nil)
+	if err != nil {
+		panic(fmt.Sprintf("failed to resolve namecheap config schema: %v", err))
+	}
+	return resolved
 }
 
 func (c *namecheapSolver) Name() string {
@@ -83,29 +102,15 @@ func loadNamecheapConfig(cfgJSON *extapi.JSON) (namecheapDNSProviderConfig, erro
 	if cfgJSON == nil {
 		return cfg, errors.New("solver config is required")
 	}
-	if err := json.Unmarshal(cfgJSON.Raw, &cfg); err != nil {
+	var raw any
+	if err := json.Unmarshal(cfgJSON.Raw, &raw); err != nil {
 		return cfg, fmt.Errorf("error decoding solver config: %w", err)
 	}
-	if cfg.APIUser == "" && cfg.APIUserSecret.Name == "" {
-		return cfg, errors.New("apiUser or apiUserSecretRef is required")
+	if err := namecheapConfigSchema.Validate(raw); err != nil {
+		return cfg, fmt.Errorf("invalid solver config: %w", err)
 	}
-	if cfg.APIUserSecret.Name != "" && cfg.APIUserSecret.Key == "" {
-		return cfg, errors.New("apiUserSecretRef.key is required")
-	}
-	if cfg.Username == "" && cfg.UsernameSecret.Name == "" {
-		return cfg, errors.New("username or usernameSecretRef is required")
-	}
-	if cfg.UsernameSecret.Name != "" && cfg.UsernameSecret.Key == "" {
-		return cfg, errors.New("usernameSecretRef.key is required")
-	}
-	if cfg.ClientIP == "" {
-		return cfg, errors.New("clientIP is required")
-	}
-	if cfg.APIKeySecret.Name == "" {
-		return cfg, errors.New("apiKeySecretRef.name is required")
-	}
-	if cfg.APIKeySecret.Key == "" {
-		return cfg, errors.New("apiKeySecretRef.key is required")
+	if err := json.Unmarshal(cfgJSON.Raw, &cfg); err != nil {
+		return cfg, fmt.Errorf("error decoding solver config: %w", err)
 	}
 	if cfg.TTL == 0 {
 		cfg.TTL = defaultRecordTTL
@@ -156,9 +161,6 @@ func (c *namecheapSolver) buildClient(ch *v1alpha1.ChallengeRequest, cfg nameche
 			return nil, err
 		}
 	}
-	if apiUser == "" {
-		return nil, errors.New("api user is empty")
-	}
 
 	username := strings.TrimSpace(cfg.Username)
 	if cfg.UsernameSecret.Name != "" {
@@ -166,9 +168,6 @@ func (c *namecheapSolver) buildClient(ch *v1alpha1.ChallengeRequest, cfg nameche
 		if err != nil {
 			return nil, err
 		}
-	}
-	if username == "" {
-		return nil, errors.New("username is empty")
 	}
 
 	client := namecheap.NewClient(&namecheap.ClientOptions{
